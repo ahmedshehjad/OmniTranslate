@@ -3,6 +3,8 @@ name: Build & Release OmniTranslate (Signed)
 on:
   workflow_dispatch:
   push:
+    branches-ignore:
+      - "**"
     tags:
       - "v*"
 
@@ -19,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      KEYSTORE_PATH: ${{ runner.temp }}/omnitranslate-release-key.jks
+      KEYSTORE_PATH: ${{ github.workspace }}/.omnitranslate-release-key.jks
       STORE_PASSWORD: ${{ secrets.OMNITRANSLATE_STORE_PASSWORD }}
       KEY_PASSWORD: ${{ secrets.OMNITRANSLATE_KEY_PASSWORD }}
       KEY_ALIAS: ${{ secrets.OMNITRANSLATE_KEY_ALIAS }}
