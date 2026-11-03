@@ -2,6 +2,7 @@ package com.example
 
 import android.app.Application
 import android.util.Log
+import com.example.data.AppDatabase
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
@@ -9,6 +10,7 @@ import com.google.android.gms.ads.RequestConfiguration
 class OmniTranslateApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        AppDatabase.getInstance(this)
 
         try {
             if (BuildConfig.DEBUG) {
