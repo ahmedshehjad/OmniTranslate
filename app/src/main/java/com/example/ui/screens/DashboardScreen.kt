@@ -325,6 +325,12 @@ fun DashboardScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            Text(
+                                text = "While active, copied text is saved to your on-device clipboard history. Stop the bubble to stop clipboard monitoring.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                lineHeight = 14.sp
+                            )
                         }
                     }
 

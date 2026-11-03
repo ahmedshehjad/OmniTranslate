@@ -126,7 +126,7 @@ fun OmniMainApp(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val isBubbleRunning by viewModel.isBubbleRunning.collectAsState()
-    var showTelegramDialog by remember { androidx.compose.runtime.mutableStateOf(true) }
+    var showTelegramDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
 
     if (showTelegramDialog) {
         com.example.ui.components.TelegramPromoDialog(
