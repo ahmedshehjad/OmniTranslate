@@ -1,71 +1,109 @@
-name: Build & Release OmniTranslate APK
+name: Build & Release OmniTranslate (Signed)
 
 on:
-  push:
-    branches:
-      - main
-      - master
   workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: write
 
+concurrency:
+  group: omnitranslate-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build-and-release:
+  signed-release:
+    name: Test and build signed Android release
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      KEYSTORE_PATH: ${{ runner.temp }}/omnitranslate-release-key.jks
+      STORE_PASSWORD: ${{ secrets.OMNITRANSLATE_STORE_PASSWORD }}
+      KEY_PASSWORD: ${{ secrets.OMNITRANSLATE_KEY_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.OMNITRANSLATE_KEY_ALIAS }}
 
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'gradle'
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
 
-      - name: Accept Android SDK Licenses
-        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
-
-      - name: Setup Debug Keystore
+      - name: Validate signing secrets and restore private keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.OMNITRANSLATE_KEYSTORE_BASE64 }}
+        shell: bash
         run: |
-          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          set -euo pipefail
+          for name in KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Required GitHub Actions secret is missing: ${name}"
+              exit 1
+            fi
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" \
+            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "Private keystore is present and the configured alias can be opened."
 
-      - name: Make Gradle Executable
-        run: chmod +x gradlew
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
 
-      - name: Upload APK Artifact
+      - name: Build signed APK and Android App Bundle
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
+
+      - name: Verify APK signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/release/*.apk)
+          if (( ${#apks[@]} == 0 )); then
+            echo "::error::No release APK was generated."
+            exit 1
+          fi
+          apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$apksigner_path"
+          for apk in "${apks[@]}"; do
+            "$apksigner_path" verify --verbose --print-certs "$apk"
+          done
+
+      - name: Upload signed release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: OmniTranslate-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: OmniTranslate-signed-release-${{ github.run_number }}
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 30
 
-      - name: Create GitHub Release with APK
+      - name: Publish versioned GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
-          tag_name: v1.0.0-release
-          name: OmniTranslate v1.0.0 APK Release 📲
+          tag_name: ${{ github.ref_name }}
+          name: OmniTranslate ${{ github.ref_name }}
           body: |
-            ## 📲 OmniTranslate Official APK Release
+            Signed production build of OmniTranslate.
 
-            ### ✨ Features Included:
-            - ⚡ Floating screen bubble & mini translator card
-            - 🌐 100% Offline Google ML Kit translation (Bangla + 17 languages)
-            - 📋 Smart SQLite Clipboard History
-            - 📷 Camera/Screenshot OCR Vision
-            - 🔊 Text-to-Speech (TTS) Pronunciation
-            - 🛡️ AdMob Test Device Mode Auto-configured
-            - 📲 Official **GETMODDEVICE** community channel integration
-
-            ### 📥 Download:
-            Download the `app-debug.apk` asset below and install it directly on your Android phone!
+            - APK signature verification completed by the release workflow.
+            - Android App Bundle included for stores that accept AAB.
+            - Keep the original signing key safe; every update must use the same app-signing identity.
           draft: false
           prerelease: false
-          files: app/build/outputs/apk/debug/*.apk
+          files: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
