@@ -80,6 +80,21 @@ jobs:
             "$apksigner_path" verify --verbose --print-certs "$apk"
           done
 
+      - name: Verify Android App Bundle signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          bundles=(app/build/outputs/bundle/release/*.aab)
+          if (( ${#bundles[@]} == 0 )); then
+            echo "::error::No release Android App Bundle was generated."
+            exit 1
+          fi
+          for bundle in "${bundles[@]}"; do
+            jarsigner -verify -verbose -certs "$bundle" >/dev/null
+            keytool -printcert -jarfile "$bundle"
+          done
+
       - name: Upload signed release artifacts
         uses: actions/upload-artifact@v4
         with:

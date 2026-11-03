@@ -20,3 +20,9 @@ debug.keystore.base64
 app/build
 .aistudio
 .build-outputs
+
+# Production signing material must never enter version control.
+*.jks
+*.keystore
+*.jks.base64
+*.keystore.base64
