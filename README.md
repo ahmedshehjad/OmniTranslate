@@ -7,88 +7,71 @@
 [![Room DB](https://img.shields.io/badge/Database-Room%20SQLite-00599C.svg?style=flat)](https://developer.android.com/training/data-storage/room)
 [![AdMob](https://img.shields.io/badge/Monetization-Google%20AdMob%2024.0.0-F4B400.svg?style=flat&logo=googleadmob)](https://admob.google.com/)
 
-A modern, high-performance Android translation suite built with **Jetpack Compose**, **Material 3**, and **Google ML Kit**. OmniTranslate enables instant translation anywhere on Android via a draggable floating screen bubble, background clipboard logging, offline on-device language models, and camera/screenshot OCR vision.
+A modern Android translation suite built with **Jetpack Compose**, **Material 3**, and **Google ML Kit**. OmniTranslate provides a draggable floating translation bubble, clipboard history, on-device language models, OCR, and text-to-speech.
 
 ---
 
 ## ✨ Features
 
-- **⚡ Draggable Floating Screen Bubble**:
-  - Floats smoothly over any app (WhatsApp, Chrome, YouTube, Notes, etc.) using `SYSTEM_ALERT_WINDOW`.
-  - Magnetic snapping physics to screen edges with subtle neon pulsing indicator.
-  - Interactive mini card overlay allows typing, pasting clipboard text, swapping languages, listening to TTS, and one-tap copying without leaving your current app.
-- **🌐 100% On-Device Offline Translation (Google ML Kit)**:
-  - Powered by Google ML Kit Translate and Language Identification.
-  - Supports 17+ world languages (Bengali, English, Spanish, Hindi, Arabic, Japanese, French, German, Chinese, and more).
-  - On-demand download and deletion of ~30MB language packs for zero-data translation anywhere.
-- **📋 Smart Universal Clipboard History**:
-  - Automatically captures copied text across applications in the background.
-  - Backed by local **Room SQLite Database** with reactive `Flow` updates.
-  - Full-text search and category filtering (`Favorites`, `Work`, `Chat`, `Starred`).
-- **📷 Camera & Image Vision OCR**:
-  - Extracts text from screenshots, documents, and photos using Google ML Kit Text Recognition.
-  - Zero-permission modern Android Photo Picker integration (`ActivityResultContracts.PickVisualMedia`).
-  - One-tap transfer from OCR text into the translation studio.
-- **🔊 Natural Text-to-Speech (TTS)**:
-  - Native Android TTS engine with accurate pronunciation across locales.
-  - Adjustable speech speed controls (0.5x – 2.0x) with real-time test preview.
-- **📲 GETMODDEVICE Channel Integration**:
-  - Official channel promotion dialog (`t.me/getmoddevice`) featuring the custom GETMODDEVICE neon cyber emblem and Telegram badge.
-- **💰 Google Mobile Ads (AdMob v24.0.0)**:
-  - Native banner ad view docked cleanly above the navigation bar.
-  - Preloaded full-screen interstitial ad manager.
-  - Automatic `BuildConfig.DEBUG` detection with emulator test device configuration.
+- **⚡ Floating translation bubble:** A user-started overlay with a mini translation card, language switching, speech, and copy actions.
+- **🌐 On-device translation:** Google ML Kit Translate and Language Identification, with language models downloaded on demand.
+- **📋 Clipboard history:** While the floating-bubble service is running, copied text is observed and saved in the app's local Room database. Users can review and clear the history.
+- **📷 Image OCR:** Extracts text from a user-selected image using Google ML Kit Text Recognition and Android's system photo picker.
+- **🔊 Text-to-speech:** Uses the device's Android text-to-speech engine.
+- **📲 Community link:** Optional GETMODDEVICE / Telegram community promotion.
+- **💰 Advertising:** Google Mobile Ads SDK provides banner and interstitial ad placements.
 
 ---
 
 ## 🛠️ Architecture & Tech Stack
 
-- **Language:** Kotlin 100%
-- **UI Toolkit:** Jetpack Compose with Material Design 3 (Custom Cyber Neon Dark + Crisp Light Themes)
-- **Architecture:** Clean MVVM (Model-View-ViewModel) + Repository / Engine Pattern
-- **Local Persistence:** Room Database with KSP (Kotlin Symbol Processing)
-- **On-Device Machine Learning:**
-  - `com.google.mlkit:translate`
-  - `com.google.mlkit:language-id`
-  - `com.google.mlkit:text-recognition`
-- **Concurrency & Reactivity:** Kotlin Coroutines & StateFlow
-- **Image Loading:** Coil Compose
-- **Build System:** Gradle Kotlin DSL with Version Catalog (`libs.versions.toml`)
+- Kotlin, Jetpack Compose, Material Design 3
+- MVVM, Kotlin Coroutines, StateFlow
+- Room SQLite local database
+- Google ML Kit Translate, Language Identification, and Text Recognition
+- Android TextToSpeech
+- Google Mobile Ads SDK
+- Gradle Kotlin DSL and Version Catalog
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **Android Studio Ladybug / Koala** or newer.
-- **JDK 17+**
-- Android SDK with `compileSdk 36` and `minSdk 24` (Android 7.0+).
+- Android Studio with Android SDK 36
+- JDK 21 (the CI workflow uses JDK 21)
+- Android 7.0+ (minSdk 24)
 
 ### Clone & Build
 ```bash
-git clone https://github.com/your-username/OmniTranslate.git
+git clone https://github.com/ahmedshehjad/OmniTranslate.git
 cd OmniTranslate
-gradle assembleDebug
+./gradlew assembleDebug
 ```
+
+For a signed production APK/AAB, see [production release signing](docs/RELEASE_SIGNING.md). A debug APK is for development/testing only and must not be represented as the production release.
 
 ---
 
-## 🔒 Permissions & Privacy
+## 🔒 Permissions & Data Handling
 
-- `SYSTEM_ALERT_WINDOW`: Exclusively used to present the user-activated floating translation bubble and mini overlay card.
-- `FOREGROUND_SERVICE` & `FOREGROUND_SERVICE_SPECIAL_USE`: Maintains the background translation bubble service.
-- `POST_NOTIFICATIONS`: Low-priority foreground notification required on Android 13+ to control and dismiss the floating bubble.
-- **Zero-Permission Media**: Uses Android's system photo picker (`PickVisualMedia`) without requiring legacy broad storage permissions.
-- **Data Safety**: All translation and clipboard history are processed strictly on-device. No clipboard data is transmitted to external servers.
+- **Overlay permission:** Used for the floating bubble and mini-card overlay. The user must grant this special access.
+- **Foreground service and notification:** Keep the user-started floating bubble active and provide a way to stop it.
+- **Clipboard:** While the floating-bubble service is active, the app listens for clipboard changes, reads copied text, and stores the text and its translation in a local Room database. Stop the bubble to stop this listener; users can delete individual entries or clear the history.
+- **Translation and OCR:** The app's ML Kit translation, language identification, and text-recognition features are implemented with on-device ML Kit APIs. Translation language models may need to be downloaded from Google over the internet before offline use.
+- **Advertising and network:** The app includes Google Mobile Ads. The advertising SDK communicates with Google and may process device, diagnostic, and ad-interaction information under Google's applicable terms and privacy disclosures. Internet access is also used for ad requests and model downloads.
+- **Local history backup:** Clipboard database content is excluded from Android cloud backup and device-to-device transfer by the app's backup rules.
+
+The app source currently contains no app-operated backend endpoint for sending clipboard history. This statement does not cover data processed by third-party SDKs such as Google Mobile Ads. Read the [privacy policy draft](PRIVACY_POLICY.md) and verify all third-party SDK disclosures before distribution.
 
 ---
 
 ## 👥 Community & Updates
 
-Join our official Telegram channel for updates, tips, and new features:
-👉 **[t.me/getmoddevice](https://t.me/getmoddevice)**
+Join the community: [t.me/getmoddevice](https://t.me/getmoddevice)
 
 ---
 
 ## 📄 License
-This project is open-source and available under the [MIT License](LICENSE).
+
+No license file is currently included. Do not assume that this repository is MIT-licensed or redistribute it under an open-source license until the copyright holder confirms the intended license and adds the corresponding license text.
