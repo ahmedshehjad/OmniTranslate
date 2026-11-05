@@ -1,0 +1,50 @@
+# 🔐 OmniTranslate — Official Production Release Signing Secrets
+
+এই ৪টি ভ্যালু আপনার GitHub Repository-র **Settings -> Secrets and variables -> Actions**-এ যুক্ত করতে হবে:
+
+---
+
+### ১. `OMNITRANSLATE_KEYSTORE_BASE64`
+**Name:** `OMNITRANSLATE_KEYSTORE_BASE64`  
+**Secret Value:** *(নিচের পুরো বেস৬৪ কোডটি হুবহু কপি করে পেস্ট করুন)*
+```text
+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
+```
+
+---
+
+### ২. `OMNITRANSLATE_STORE_PASSWORD`
+**Name:** `OMNITRANSLATE_STORE_PASSWORD`  
+**Secret Value:**
+```text
+OmniTranslate2026
+```
+
+---
+
+### ৩. `OMNITRANSLATE_KEY_PASSWORD`
+**Name:** `OMNITRANSLATE_KEY_PASSWORD`  
+**Secret Value:**
+```text
+OmniTranslate2026
+```
+
+---
+
+### ৪. `OMNITRANSLATE_KEY_ALIAS`
+**Name:** `OMNITRANSLATE_KEY_ALIAS`  
+**Secret Value:**
+```text
+upload
+```
+
+---
+
+### 🔍 এই কি-স্টোরের সার্টিফিকেট ফিঙ্গারপ্রিন্ট (Verification Credentials):
+* **Keystore File:** `my-upload-key.jks`
+* **Alias:** `upload`
+* **Owner (DN):** `CN=OmniTranslate, O=GETMODDEVICE, C=US`
+* **Certificate SHA-256:** `FF:8E:7A:99:69:01:3D:AA:DE:3B:F4:9D:0E:A5:00:B0:EF:65:2F:31:2A:AA:92:48:C2:55:94:3E:CC:43:83:23`
+* **Certificate SHA-1:** `98:66:A8:87:41:87:D4:31:BB:76:85:8F:A8:4F:AE:C7:DE:FF:84:13`
+* **Validity:** ২১ মার্চ ২০৫৪ পর্যন্ত (১০,০০০ দিন)
+* **Signature Scheme:** Google APK Signature Scheme v2 & v3 Verified!

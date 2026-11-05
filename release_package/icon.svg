@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- ব্যাকগ্রাউন্ড ডিপ স্পেস গ্রেডিয়েন্ট -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="50%" stop-color="#1E1B4B" />
+      <stop offset="100%" stop-color="#311042" />
+    </linearGradient>
+
+    <!-- ফ্লোটিং গ্লো বাবল গ্রেডিয়েন্ট -->
+    <linearGradient id="bubbleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1" />
+      <stop offset="50%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#EC4899" />
+    </linearGradient>
+
+    <!-- নিয়ন রিং গ্লো -->
+    <linearGradient id="ringGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#818CF8" />
+    </linearGradient>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- প্রিমিয়াম স্কুইরকল ব্যাকগ্রাউন্ড (Squircle) -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+
+  <!-- ভেতরের স্মার্ট হাব গ্লো সার্কেল -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="url(#ringGrad)" stroke-width="6" stroke-dasharray="16 12" opacity="0.4" />
+  
+  <!-- প্রধান ফ্লোটিং হাব বাবল -->
+  <circle cx="256" cy="256" r="135" fill="url(#bubbleGrad)" filter="url(#glow)" />
+
+  <!-- ট্রান্সলেট সিম্বল (A এবং গ্লোবাল টেক্সট আইকন) -->
+  <g fill="#FFFFFF" transform="translate(146, 146) scale(0.43)">
+    <!-- ভাষা/গ্লোব কার্ভ -->
+    <path d="M256 48C141.1 48 48 141.1 48 256s93.1 208 208 208 208-93.1 208-208S370.9 48 256 48zm0 376c-92.8 0-168-75.2-168-168S163.2 88 256 88s168 75.2 168 168-75.2 168-168 168z" opacity="0.25"/>
+    <!-- সেন্ট্রাল ট্রান্সলেশন আইকন সিম্বল -->
+    <path d="M235 150h42l75 190h-40l-17-46h-78l-17 46h-40l75-190zm32 112l-21-62-21 62h42z" fill="#FFFFFF"/>
+    <path d="M140 330c25-15 45-38 58-65-15-5-31-8-48-8-8 0-15 1-22 2 4 26 18 51 37 71z" opacity="0.6"/>
+  </g>
+
+  <!-- ছোট ফ্লোটিং অরবিট ডট (স্মার্ট হাব ইন্ডিকেটর) -->
+  <circle cx="375" cy="155" r="18" fill="#38BDF8" filter="url(#glow)" />
+</svg>

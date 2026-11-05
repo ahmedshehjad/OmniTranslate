@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">OmniTranslate</string>
+    <string name="accessibility_service_description">OmniTranslate uses this service to read and translate on-screen text when tapped or selected.</string>
 </resources>

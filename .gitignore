@@ -20,3 +20,6 @@ debug.keystore.base64
 app/build
 .aistudio
 .build-outputs
+*.apk
+*.aab
+public/release/
