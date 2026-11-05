@@ -3,8 +3,6 @@ name: Build & Release OmniTranslate (Signed)
 on:
   workflow_dispatch:
   push:
-    branches-ignore:
-      - "**"
     tags:
       - "v*"
 
