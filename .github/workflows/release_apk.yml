@@ -43,12 +43,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          missing=()
           for name in KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
             if [[ -z "${!name:-}" ]]; then
-              echo "::error::Required GitHub Actions secret is missing: ${name}"
-              exit 1
+              case "$name" in
+                KEYSTORE_BASE64) missing+=("OMNITRANSLATE_KEYSTORE_BASE64") ;;
+                STORE_PASSWORD) missing+=("OMNITRANSLATE_STORE_PASSWORD") ;;
+                KEY_PASSWORD) missing+=("OMNITRANSLATE_KEY_PASSWORD") ;;
+                KEY_ALIAS) missing+=("OMNITRANSLATE_KEY_ALIAS") ;;
+              esac
             fi
           done
+          if (( ${#missing[@]} > 0 )); then
+            printf '::error::Missing required repository Actions secret(s): %s\n' "${missing[*]}"
+            echo "Open Settings > Secrets and variables > Actions > Repository secrets."
+            exit 1
+          fi
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           test -s "$KEYSTORE_PATH"
           keytool -list -keystore "$KEYSTORE_PATH" \
