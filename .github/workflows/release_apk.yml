@@ -72,21 +72,34 @@ jobs:
       - name: Build signed APK and Android App Bundle
         run: ./gradlew assembleRelease bundleRelease --no-daemon
 
-      - name: Verify APK signature
+      - name: Verify APK and AAB signatures and create checksums
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
           apks=(app/build/outputs/apk/release/*.apk)
+          aabs=(app/build/outputs/bundle/release/*.aab)
           if (( ${#apks[@]} == 0 )); then
             echo "::error::No release APK was generated."
             exit 1
           fi
+          if (( ${#aabs[@]} == 0 )); then
+            echo "::error::No Android App Bundle was generated."
+            exit 1
+          fi
+
           apksigner_path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -n "$apksigner_path"
           for apk in "${apks[@]}"; do
             "$apksigner_path" verify --verbose --print-certs "$apk"
           done
+          for aab in "${aabs[@]}"; do
+            jarsigner -verify -strict -verbose -certs "$aab"
+          done
+
+          mkdir -p release-checksums
+          sha256sum "${apks[@]}" "${aabs[@]}" > release-checksums/SHA256SUMS.txt
+          cat release-checksums/SHA256SUMS.txt
 
       - name: Upload signed release artifacts
         uses: actions/upload-artifact@v4
@@ -95,6 +108,7 @@ jobs:
           path: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/bundle/release/*.aab
+            release-checksums/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -115,5 +129,6 @@ jobs:
           files: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/bundle/release/*.aab
+            release-checksums/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
