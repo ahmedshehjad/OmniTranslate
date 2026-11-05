@@ -31,13 +31,12 @@ jobs:
       - name: Setup Official Production Release Keystore
         run: |
           if [ -n "$SECRET_B64" ]; then
-            echo "Using keystore from GitHub Secret OMNITRANSLATE_KEYSTORE_BASE64..."
-            echo "$SECRET_B64" | base64 -d > my-upload-key.jks
-          elif [ -f my-upload-key.jks ]; then
-            echo "Using committed my-upload-key.jks..."
-          elif [ -f my-upload-key.base64 ]; then
-            echo "Decoding from my-upload-key.base64..."
-            base64 -d my-upload-key.base64 > my-upload-key.jks
+            echo "Decoding keystore from GitHub Secret OMNITRANSLATE_KEYSTORE_BASE64..."
+            python3 -c "import base64, os; data = os.environ.get('SECRET_B64', '').strip(); open('my-upload-key.jks', 'wb').write(base64.b64decode(data)) if data else None" || true
+          fi
+          if [ ! -s my-upload-key.jks ]; then
+            echo "Decoding keystore from repository my-upload-key.base64..."
+            python3 -c "import base64; open('my-upload-key.jks', 'wb').write(base64.b64decode(open('my-upload-key.base64').read().strip()))"
           fi
           ls -lh my-upload-key.jks
         env:
