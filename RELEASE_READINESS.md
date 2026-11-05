@@ -6,7 +6,7 @@ Audit updated: 5 November 2026.
 
 - The production signing workflow exists at [`.github/workflows/release_apk.yml`](.github/workflows/release_apk.yml).
 - The Android Gradle configuration assigns the `release` build type to a dedicated release signing config.
-- The workflow is configured to restore a publisher-owned keystore from GitHub Actions secrets, run unit tests, build `assembleRelease` and `bundleRelease`, verify the APK signature with Android `apksigner`, and upload APK/AAB artifacts.
+- The workflow is configured to restore a publisher-owned keystore from GitHub Actions secrets, run unit tests, build `assembleRelease` and `bundleRelease`, verify the APK signature with Android `apksigner`, verify the AAB signature with `jarsigner`, generate SHA-256 checksums, and upload APK/AAB/checksum artifacts.
 - The current public GitHub Release asset `app-debug.apk` is a debug build. It is not the production release and must not be submitted as a signed production APK.
 - GitHub Actions run [#19](https://github.com/ahmedshehjad/OmniTranslate/actions/runs/41957388472) was inspected. It failed at **Validate signing secrets and restore private keystore** before Gradle ran. The log explicitly reports `OMNITRANSLATE_KEYSTORE_BASE64` missing; the environment also showed blank values for the store password, key password, and alias. No signed APK/AAB was produced by this run.
 - The workflow was updated to report all missing secret names in one failure message. This does not create or populate secrets.
@@ -29,7 +29,7 @@ After all four secrets are added, run **Actions → Build & Release OmniTranslat
 1. Validate signing secrets and restore private keystore
 2. Run unit tests
 3. Build signed APK and Android App Bundle
-4. Verify APK signature
+4. Verify APK and AAB signatures and generate SHA-256 checksums
 5. Upload signed release artifacts
 
 A manual workflow run uploads downloadable artifacts to the run. A public GitHub Release is created only when the workflow is triggered by a pushed `v*` tag. Do not create a release tag until the signed build and signature verification have passed.
