@@ -13,7 +13,7 @@ Configure these repository Actions secrets before running the signed release wor
 | `OMNITRANSLATE_KEY_PASSWORD` | Private-key password |
 | `OMNITRANSLATE_KEY_ALIAS` | Exact alias inside the keystore |
 
-The workflow refuses to build if any secret is missing or if the keystore cannot be opened with the supplied alias and password. It restores the keystore into the runner's temporary directory, runs unit tests, builds both `assembleRelease` and `bundleRelease`, verifies the APK signature with Android's `apksigner`, and uploads the APK/AAB. A GitHub Release is created only for a pushed `v*` tag.
+The workflow refuses to build if any secret is missing or if the keystore cannot be opened with the supplied alias and password. It restores the keystore into the runner's temporary directory, runs unit tests, builds both `assembleRelease` and `bundleRelease`, verifies the APK signature with Android's `apksigner`, verifies the AAB signature with `jarsigner`, creates SHA-256 checksums for both release files, and uploads the APK/AAB/checksum file. A GitHub Release is created only for a pushed `v*` tag.
 
 ## Important identity and version rules
 
