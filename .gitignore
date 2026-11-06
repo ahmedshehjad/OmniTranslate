@@ -23,3 +23,11 @@ app/build
 *.apk
 *.aab
 public/release/
+
+# Signing materials (NEVER commit)
+*.jks
+*.keystore
+*.base64
+*.idsig
+*.p12
+*.pfx
