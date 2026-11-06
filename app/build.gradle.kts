@@ -8,6 +8,14 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+val releaseKeystorePath = providers.environmentVariable("KEYSTORE_PATH").orNull
+val releaseStorePassword = providers.environmentVariable("OMNITRANSLATE_STORE_PASSWORD").orNull
+  ?: providers.environmentVariable("STORE_PASSWORD").orNull
+val releaseKeyPassword = providers.environmentVariable("OMNITRANSLATE_KEY_PASSWORD").orNull
+  ?: providers.environmentVariable("KEY_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("OMNITRANSLATE_KEY_ALIAS").orNull
+  ?: providers.environmentVariable("KEY_ALIAS").orNull
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -16,27 +24,20 @@ android {
     applicationId = "com.aistudio.omnitranslate.qkvzpt"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = 2
+    versionName = "1.0.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
-  // Do not remove or modify these signingConfigs. They are necessary for building, installing,
-  // and updating Android apps in AI Studio.
+  // Keep release signing optional during Gradle configuration so debug builds and unit tests
+  // can run without production credentials. Release tasks are blocked by validateReleaseSigning.
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH")
-        ?: throw GradleException("KEYSTORE_PATH environment variable is required for release builds")
-      storeFile = file(keystorePath)
-      val rawStorePass = System.getenv("OMNITRANSLATE_STORE_PASSWORD") ?: System.getenv("STORE_PASSWORD")
-        ?: throw GradleException("STORE_PASSWORD environment variable is required for release builds")
-      val rawKeyPass = System.getenv("OMNITRANSLATE_KEY_PASSWORD") ?: System.getenv("KEY_PASSWORD")
-        ?: throw GradleException("KEY_PASSWORD environment variable is required for release builds")
-      val rawAlias = System.getenv("OMNITRANSLATE_KEY_ALIAS") ?: System.getenv("KEY_ALIAS") ?: "upload"
-      storePassword = rawStorePass.trim()
-      keyPassword = rawKeyPass.trim()
-      keyAlias = rawAlias.trim()
+      if (!releaseKeystorePath.isNullOrBlank()) storeFile = file(releaseKeystorePath)
+      if (!releaseStorePassword.isNullOrBlank()) storePassword = releaseStorePassword
+      if (!releaseKeyPassword.isNullOrBlank()) keyPassword = releaseKeyPassword
+      if (!releaseKeyAlias.isNullOrBlank()) keyAlias = releaseKeyAlias
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -56,13 +57,14 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
-      // AI Studio.
-      signingConfig = signingConfigs.getByName("release")
+      if (!releaseKeystorePath.isNullOrBlank() &&
+          !releaseStorePassword.isNullOrBlank() &&
+          !releaseKeyPassword.isNullOrBlank() &&
+          !releaseKeyAlias.isNullOrBlank()) {
+        signingConfig = signingConfigs.getByName("release")
+      }
     }
     debug {
-      // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
-      // AI Studio.
       signingConfig = signingConfigs.getByName("debugConfig")
     }
   }
@@ -88,8 +90,35 @@ android {
   }
 }
 
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
+// Fail closed only when a release task is requested; debug builds/tests need no release secrets.
+val validateReleaseSigning = tasks.register("validateReleaseSigning") {
+  group = "verification"
+  description = "Checks production signing credentials before any release artifact is built."
+  doLast {
+    val required = mapOf(
+      "KEYSTORE_PATH" to releaseKeystorePath,
+      "OMNITRANSLATE_STORE_PASSWORD" to releaseStorePassword,
+      "OMNITRANSLATE_KEY_PASSWORD" to releaseKeyPassword,
+      "OMNITRANSLATE_KEY_ALIAS" to releaseKeyAlias
+    )
+    val missing = required.filterValues { it.isNullOrBlank() }.keys
+    if (missing.isNotEmpty()) {
+      throw GradleException("Missing required release signing environment variables: ${missing.joinToString()}")
+    }
+    val keystore = file(releaseKeystorePath!!)
+    if (!keystore.isFile || keystore.length() == 0L) {
+      throw GradleException("Release keystore file is missing or empty: ${keystore.absolutePath}")
+    }
+  }
+}
+
+tasks.configureEach {
+  if (name == "preReleaseBuild" || name == "bundleRelease") {
+    dependsOn(validateReleaseSigning)
+  }
+}
+
+// Configure the Secrets Gradle Plugin to use .env and .env.example files.
 secrets {
   propertiesFileName = ".env"
   defaultPropertiesFileName = ".env.example"
@@ -98,17 +127,10 @@ secrets {
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
 
-// Some unused dependencies are commented out below instead of being removed.
-// This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
-  // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
-  // implementation(libs.androidx.camera.camera2)
-  // implementation(libs.androidx.camera.core)
-  // implementation(libs.androidx.camera.lifecycle)
-  // implementation(libs.androidx.camera.view)
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.androidx.compose.material.icons.extended)
   implementation(libs.androidx.compose.material3)
@@ -116,11 +138,9 @@ dependencies {
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
-  // implementation(libs.androidx.datastore.preferences)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
-  // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
@@ -130,15 +150,6 @@ dependencies {
   implementation(libs.play.services.ads)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
-  // Uncomment to use Firestore:
-  // implementation(libs.firebase.firestore)
-
-  // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
-  // Sign-In via Credential Manager:
-  // implementation(libs.firebase.auth)
-  // implementation(libs.androidx.credentials)
-  // implementation(libs.androidx.credentials.play.services)
-  // implementation(libs.googleid)
   implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)
@@ -146,7 +157,6 @@ dependencies {
   implementation(libs.logging.interceptor)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
-  // implementation(libs.play.services.location)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
