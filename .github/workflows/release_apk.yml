@@ -38,6 +38,9 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android build tools
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
       - name: Validate release secrets
         shell: bash
         env:
@@ -109,11 +112,16 @@ jobs:
             echo "::error::APK signer certificate does not match the configured production keystore."
             exit 1
           fi
+          AAB_CERT="$(keytool -printcert -jarfile "$AAB" -v 2>/dev/null | awk -F': ' '/SHA256: / {print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          if [[ -z "$AAB_CERT" || "$AAB_CERT" != "$KEY_CERT" ]]; then
+            echo "::error::AAB signer certificate does not match the configured production keystore."
+            exit 1
+          fi
+          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.aistudio.omnitranslate.qkvzpt' versionCode='2' versionName='1.0.1'" >/dev/null
           jarsigner -verify -verbose -certs "$AAB" >/dev/null
           echo "APK and AAB signature verification passed."
           echo "Signer SHA-256: $APK_CERT"
-          echo "Package: com.aistudio.omnitranslate.qkvzpt"
-          echo "Expected version: 1.0.1 (versionCode 2)"
+          echo "Package and version verified: com.aistudio.omnitranslate.qkvzpt / 1.0.1 (2)"
           echo "apk_path=$APK" >> "$GITHUB_OUTPUT"
           echo "aab_path=$AAB" >> "$GITHUB_OUTPUT"
 
