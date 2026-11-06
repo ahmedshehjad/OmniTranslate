@@ -26,11 +26,14 @@ android {
   // and updating Android apps in AI Studio.
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      val keystorePath = System.getenv("KEYSTORE_PATH")
+        ?: throw GradleException("KEYSTORE_PATH environment variable is required for release builds")
       storeFile = file(keystorePath)
-      val rawStorePass = System.getenv("OMNITRANSLATE_STORE_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "OmniTranslate2026"
-      val rawKeyPass = System.getenv("OMNITRANSLATE_KEY_PASSWORD") ?: System.getenv("KEY_PASSWORD") ?: "OmniTranslate2026"
-      val rawAlias = System.getenv("OMNITRANSLATE_KEY_ALIAS") ?: "upload"
+      val rawStorePass = System.getenv("OMNITRANSLATE_STORE_PASSWORD") ?: System.getenv("STORE_PASSWORD")
+        ?: throw GradleException("STORE_PASSWORD environment variable is required for release builds")
+      val rawKeyPass = System.getenv("OMNITRANSLATE_KEY_PASSWORD") ?: System.getenv("KEY_PASSWORD")
+        ?: throw GradleException("KEY_PASSWORD environment variable is required for release builds")
+      val rawAlias = System.getenv("OMNITRANSLATE_KEY_ALIAS") ?: System.getenv("KEY_ALIAS") ?: "upload"
       storePassword = rawStorePass.trim()
       keyPassword = rawKeyPass.trim()
       keyAlias = rawAlias.trim()
