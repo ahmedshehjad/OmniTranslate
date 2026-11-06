@@ -1,118 +1,154 @@
-name: Build & Release OmniTranslate Production APK & AAB
+name: OmniTranslate Production Release
 
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Release tag (e.g., v1.0.0)'
+      release_tag:
+        description: "Release tag to create (for example v1.0.1)"
         required: true
-        default: 'v1.0.0'
+        default: "v1.0.1"
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: write
 
+concurrency:
+  group: omnitranslate-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 45
     steps:
-      - name: Checkout Code
+      - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'gradle'
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
 
-      - name: Validate Release Secrets
-        run: |
-          if [ -z "${{ secrets.OMNITRANSLATE_KEYSTORE_BASE64 }}" ]; then
-            echo "ERROR: OMNITRANSLATE_KEYSTORE_BASE64 secret is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.OMNITRANSLATE_STORE_PASSWORD }}" ]; then
-            echo "ERROR: OMNITRANSLATE_STORE_PASSWORD secret is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.OMNITRANSLATE_KEY_PASSWORD }}" ]; then
-            echo "ERROR: OMNITRANSLATE_KEY_PASSWORD secret is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.OMNITRANSLATE_KEY_ALIAS }}" ]; then
-            echo "ERROR: OMNITRANSLATE_KEY_ALIAS secret is not set"
-            exit 1
-          fi
-          echo "All required secrets are present"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Setup Production Release Keystore
-        run: |
-          echo "Decoding keystore from GitHub Secret..."
-          python3 -c "import base64, os; data = os.environ.get('SECRET_B64', '').strip(); open('release.keystore', 'wb').write(base64.b64decode(data)) if data else None"
-          if [ ! -s release.keystore ]; then
-            echo "ERROR: Failed to decode keystore"
-            exit 1
-          fi
-          echo "Keystore decoded successfully"
-          ls -lh release.keystore
+      - name: Validate release secrets
+        shell: bash
         env:
-          SECRET_B64: ${{ secrets.OMNITRANSLATE_KEYSTORE_BASE64 }}
-
-      - name: Make Gradle Executable
-        run: chmod +x gradlew
-
-      - name: Build Official Production Release APK & AAB
+          KEYSTORE_B64: ${{ secrets.OMNITRANSLATE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.OMNITRANSLATE_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.OMNITRANSLATE_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.OMNITRANSLATE_KEY_ALIAS }}
         run: |
-          export KEYSTORE_PATH="$(pwd)/release.keystore"
-          export STORE_PASSWORD="${{ secrets.OMNITRANSLATE_STORE_PASSWORD }}"
-          export KEY_PASSWORD="${{ secrets.OMNITRANSLATE_KEY_PASSWORD }}"
-          export KEY_ALIAS="${{ secrets.OMNITRANSLATE_KEY_ALIAS }}"
-          ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace
+          set -euo pipefail
+          for name in KEYSTORE_B64 STORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required GitHub Actions secret is missing: $name"
+              exit 1
+            fi
+          done
+          echo "All required release secrets are present (values are not displayed)."
+
+      - name: Decode and validate production keystore
+        shell: bash
         env:
-          OMNITRANSLATE_KEYSTORE_BASE64: ${{ secrets.OMNITRANSLATE_KEYSTORE_BASE64 }}
-
-      - name: Verify APK Signature
+          KEYSTORE_B64: ${{ secrets.OMNITRANSLATE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.OMNITRANSLATE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.OMNITRANSLATE_KEY_ALIAS }}
         run: |
-          APK=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
-          echo "Verifying APK: $APK"
-          apksigner verify --verbose "$APK"
-          if [ $? -ne 0 ]; then
-            echo "ERROR: APK signature verification failed"
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, os
+          raw = os.environ["KEYSTORE_B64"].strip()
+          data = base64.b64decode(raw, validate=True)
+          if not data:
+              raise SystemExit("Decoded keystore is empty")
+          with open("release.keystore", "wb") as f:
+              f.write(data)
+          PY
+          keytool -list -keystore release.keystore -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "Keystore format, store password and alias validated."
+
+      - name: Build release APK and AAB
+        shell: bash
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+          OMNITRANSLATE_STORE_PASSWORD: ${{ secrets.OMNITRANSLATE_STORE_PASSWORD }}
+          OMNITRANSLATE_KEY_PASSWORD: ${{ secrets.OMNITRANSLATE_KEY_PASSWORD }}
+          OMNITRANSLATE_KEY_ALIAS: ${{ secrets.OMNITRANSLATE_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --stacktrace clean testDebugUnitTest assembleRelease bundleRelease
+
+      - name: Verify APK signature, package and version
+        id: verify_apk
+        shell: bash
+        env:
+          STORE_PASSWORD: ${{ secrets.OMNITRANSLATE_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.OMNITRANSLATE_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.OMNITRANSLATE_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
+          AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -name '*.aab' -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          test -n "$AAB" && test -s "$AAB"
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee apk-signature.txt
+          APK_CERT="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' apk-signature.txt | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          KEY_CERT="$(keytool -list -v -keystore release.keystore -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" 2>/dev/null | awk -F': ' '/SHA256: / {print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          test -n "$APK_CERT" && test -n "$KEY_CERT"
+          if [[ "$APK_CERT" != "$KEY_CERT" ]]; then
+            echo "::error::APK signer certificate does not match the configured production keystore."
             exit 1
           fi
-          echo "APK signature verified successfully"
+          jarsigner -verify -verbose -certs "$AAB" >/dev/null
+          echo "APK and AAB signature verification passed."
+          echo "Signer SHA-256: $APK_CERT"
+          echo "Package: com.aistudio.omnitranslate.qkvzpt"
+          echo "Expected version: 1.0.1 (versionCode 2)"
+          echo "apk_path=$APK" >> "$GITHUB_OUTPUT"
+          echo "aab_path=$AAB" >> "$GITHUB_OUTPUT"
 
-      - name: Verify AAB (zip integrity)
+      - name: Prepare release assets and checksums
+        shell: bash
         run: |
-          AAB=$(find app/build/outputs/bundle/release -name "*.aab" | head -1)
-          echo "Verifying AAB: $AAB"
-          python3 -c "import zipfile; z=zipfile.ZipFile('$AAB'); print('AAB is valid zip, entries:', len(z.namelist()))"
-          if [ $? -ne 0 ]; then
-            echo "ERROR: AAB verification failed"
-            exit 1
-          fi
+          set -euo pipefail
+          mkdir -p release-assets
+          cp "${{ steps.verify_apk.outputs.apk_path }}" release-assets/OmniTranslate-v1.0.1-release.apk
+          cp "${{ steps.verify_apk.outputs.aab_path }}" release-assets/OmniTranslate-v1.0.1-release.aab
+          (cd release-assets && sha256sum *.apk *.aab > SHA256SUMS.txt)
+          cat release-assets/SHA256SUMS.txt
 
-      - name: Upload Release Artifacts
+      - name: Upload verified build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: OmniTranslate-release-${{ github.run_number }}
-          path: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/bundle/release/*.aab
+          name: OmniTranslate-v1.0.1-verified-release
+          path: release-assets/*
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish Official GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Publish GitHub Release
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag }}
-          name: OmniTranslate ${{ github.event.inputs.tag }} Official Production Release
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: OmniTranslate v1.0.1 Official Production Release
           draft: false
           prerelease: false
-          files: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/bundle/release/*.aab
+          files: release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: rm -f release.keystore
